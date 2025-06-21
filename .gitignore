@@ -1,0 +1,11 @@
+.env/
+dataset/
+models/
+
+# Cached Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.h5
