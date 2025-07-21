@@ -1,8 +1,12 @@
 .env/
 dataset/
 models/
+visualize_data/
+segment_plots/
+instrument_compare/
 
-# Cached Python bytecode
+
+# Cached Python bytecodes
 __pycache__/
 *.py[cod]
 *$py.class

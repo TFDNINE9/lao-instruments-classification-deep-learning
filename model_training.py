@@ -16,7 +16,6 @@ from datetime import datetime
 import warnings
 warnings.filterwarnings('ignore')
 
-# Enable GPU growth
 physical_devices = tf.config.list_physical_devices('GPU')
 if physical_devices:
     try:
@@ -26,23 +25,20 @@ if physical_devices:
     except:
         pass
 
-print(f"TensorFlow version: {tf.__version__}")
+print(f"TensorFlow version: {tf._version_}")
 
 class EnhancedAudioConfig:
     """Enhanced configuration with advanced feature engineering"""
     
-    # Audio parameters
     SAMPLE_RATE = 44100
     SEGMENT_DURATION = 6.0
     
-    # Enhanced feature extraction parameters
     N_FFT = 2048
     HOP_LENGTH = 512
     N_MELS = 128
     N_MFCC = 20
     FMAX = 8000
     
-    # HPSS parameters for harmonic-percussive separation
     HPSS_MARGIN = (1.0, 5.0)  # (harmonic_margin, percussive_margin)
     USE_HPSS = True
     
@@ -52,8 +48,8 @@ class EnhancedAudioConfig:
     
     # Advanced augmentation parameters
     USE_SPEC_AUGMENT = True
-    FREQ_MASK_PARAM = 27  # Maximum frequency channels to mask
-    TIME_MASK_PARAM = 100  # Maximum time steps to mask
+    FREQ_MASK_PARAM = 27  
+    TIME_MASK_PARAM = 100
     NUM_FREQ_MASKS = 2
     NUM_TIME_MASKS = 2
     
@@ -61,12 +57,12 @@ class EnhancedAudioConfig:
     MIXUP_ALPHA = 0.4
     
     # Training parameters
-    BATCH_SIZE = 16  # Smaller for multi-channel features
+    BATCH_SIZE = 16 
     EPOCHS = 100
     LEARNING_RATE = 0.0001
     EARLY_STOPPING_PATIENCE = 20
     
-    # Advanced loss configuration
+    # loss configuration
     USE_FOCAL_LOSS = True
     FOCAL_GAMMA = 2.0
     FOCAL_ALPHA = 0.25
@@ -76,19 +72,19 @@ class EnhancedAudioConfig:
     DROPOUT_RATE = 0.5
     L2_REGULARIZATION = 0.01
     
-    # Enhanced class weights for difficult instruments
+    # class weights for difficult instruments
     USE_ENHANCED_WEIGHTS = True
     DIFFICULT_INSTRUMENTS = ['khean', 'pin', 'saw']
     DIFFICULT_WEIGHT_BOOST = 1.5
     
     # Data parameters
-    K_FOLDS = 5
+    K_FOLDS = 3
     TEST_SIZE = 0.2
     RANDOM_SEED = 42
     
     # Paths
     DATA_PATH = "dataset"
-    MODEL_SAVE_PATH = "models/enhanced_model_gemini"
+    MODEL_SAVE_PATH = "models/model"
     
     # Instrument mapping
     INSTRUMENT_MAPPING = {
@@ -102,7 +98,7 @@ class EnhancedAudioConfig:
     }
 
 # Create model directory
-model_path = f"{EnhancedAudioConfig.MODEL_SAVE_PATH}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+model_path = f"{EnhancedAudioConfig.MODEL_SAVE_PATH}{datetime.now().strftime('%Y%m%d%H%M%S')}"
 os.makedirs(model_path, exist_ok=True)
 
 def extract_enhanced_features(audio, sr):
@@ -239,8 +235,8 @@ class AttentionLayer(tf.keras.layers.Layer):
     """
     Custom attention layer for focusing on important frequency bands
     """
-    def __init__(self, **kwargs):
-        super(AttentionLayer, self).__init__(**kwargs)
+    def _init_(self, **kwargs):
+        super(AttentionLayer, self)._init_(**kwargs)
     
     def build(self, input_shape):
         self.W = self.add_weight(
@@ -271,21 +267,17 @@ def focal_loss(gamma=2.0, alpha=0.25):
     Focal loss for addressing class imbalance and hard examples
     """
     def focal_loss_fixed(y_true, y_pred):
-        # Clip prediction to prevent log(0)
         epsilon = tf.keras.backend.epsilon()
         y_pred = tf.clip_by_value(y_pred, epsilon, 1. - epsilon)
         
-        # Calculate focal loss
         p_t = tf.where(tf.equal(y_true, 1), y_pred, 1 - y_pred)
         alpha_factor = tf.where(tf.equal(y_true, 1), alpha, 1 - alpha)
         focal_weight = tf.where(tf.equal(y_true, 1), 
                                tf.pow(1 - p_t, gamma), 
                                tf.pow(p_t, gamma))
         
-        # Compute cross entropy
         cross_entropy = -tf.math.log(p_t)
         
-        # Apply focal loss
         loss = alpha_factor * focal_weight * cross_entropy
         
         return tf.reduce_mean(tf.reduce_sum(loss, axis=1))
@@ -341,7 +333,6 @@ def build_enhanced_model(input_shape, num_classes):
     # Global average pooling
     x = tf.keras.layers.GlobalAveragePooling2D()(x)
     
-    # Attention mechanism if enabled
     if EnhancedAudioConfig.USE_ATTENTION:
         x = tf.keras.layers.Reshape((-1, 1))(x)
         x = AttentionLayer()(x)
@@ -368,6 +359,9 @@ def build_enhanced_model(input_shape, num_classes):
     outputs = tf.keras.layers.Dense(num_classes, activation='softmax')(x)
     
     model = tf.keras.Model(inputs=inputs, outputs=outputs)
+
+    save_model_summary(model, os.path.join(model_path, 'model_architecture.txt'))
+
     return model
 
 def advanced_segment_selection(audio, sr, segment_duration=6.0, n_segments=3):
@@ -425,12 +419,11 @@ def advanced_segment_selection(audio, sr, segment_duration=6.0, n_segments=3):
     selected_indices = []
     
     for idx in sorted_indices:
-        # Check if this segment is far enough from already selected ones
         if not selected_indices:
             selected_indices.append(idx)
         else:
             min_distance = min([abs(idx - sel_idx) for sel_idx in selected_indices])
-            if min_distance >= 2:  # At least 2 hops apart
+            if min_distance >= 2:
                 selected_indices.append(idx)
         
         if len(selected_indices) >= n_segments:
@@ -470,7 +463,7 @@ class EnhancedDataGenerator(tf.keras.utils.Sequence):
     """
     Custom data generator with on-the-fly augmentation
     """
-    def __init__(self, X, y, batch_size=32, augment=True, shuffle=True):
+    def _init_(self, X, y, batch_size=32, augment=True, shuffle=True):
         self.X = X
         self.y = y
         self.batch_size = batch_size
@@ -479,10 +472,10 @@ class EnhancedDataGenerator(tf.keras.utils.Sequence):
         self.indices = np.arange(len(self.X))
         self.on_epoch_end()
     
-    def __len__(self):
+    def _len_(self):
         return int(np.ceil(len(self.X) / self.batch_size))
     
-    def __getitem__(self, index):
+    def _getitem_(self, index):
         indices = self.indices[index * self.batch_size:(index + 1) * self.batch_size]
         
         X_batch = self.X[indices].copy()
@@ -665,6 +658,32 @@ def make_json_serializable(obj):
         return [make_json_serializable(item) for item in obj]
     else:
         return obj
+    
+
+def save_model_summary(model, file_path):
+    """
+    Save model summary to a text file and print to console
+    """
+    from io import StringIO
+    import sys
+    
+    original_stdout = sys.stdout
+    string_buffer = StringIO()
+    sys.stdout = string_buffer
+    model.summary(line_length=100)
+    model_summary = string_buffer.getvalue()
+    sys.stdout = original_stdout
+    
+    print("\n" + "="*60)
+    print("MODEL ARCHITECTURE SUMMARY")
+    print("="*60)
+    print(model_summary)
+    
+    with open(file_path, 'w') as f:
+        f.write(model_summary)
+    
+    print(f"✅ Model summary saved to {file_path}")
+
 
 def plot_training_history(fold_results, model_path):
     """
@@ -749,10 +768,9 @@ def plot_training_history(fold_results, model_path):
     ax3.legend()
     ax3.grid(True, alpha=0.3)
     
-    # 4. Learning rate schedule (if available)
+    # 4. Learning rate schedule
     ax4 = plt.subplot(2, 3, 4)
     
-    # Try to plot learning rate if it's in the history
     lr_found = False
     for fold_result in fold_results:
         history = fold_result['history']
@@ -831,7 +849,7 @@ def plot_training_history(fold_results, model_path):
         history = fold_result['history']
         val_acc = history['val_accuracy']
         
-        # Find epoch where accuracy reaches 90% of final value
+    
         final_acc = val_acc[-1]
         target_acc = 0.9 * final_acc
         
@@ -1073,32 +1091,64 @@ def train_enhanced_model(X_train, y_train, X_test, y_test, class_names):
     # Final evaluation on test set
     if best_model is not None:
         print("\n" + "="*60)
-        print("ENHANCED MODEL - FINAL TEST EVALUATION")
+        print("ENHANCED MODEL - FINAL EVALUATION")
         print("="*60)
+        
+        print("\n1. TRAINING SET EVALUATION")
+        print("-"*40)
+        
+        train_loss, train_acc = best_model.evaluate(X_train, y_train_categorical, verbose=0)
+        print(f"Training accuracy: {train_acc:.4f}")
+    
+        y_train_pred_probs = best_model.predict(X_train, verbose=0)
+        y_train_pred = np.argmax(y_train_pred_probs, axis=1)
+        y_train_true = np.argmax(y_train_categorical, axis=1)
+        
+        cm_train = confusion_matrix(y_train_true, y_train_pred)
+        
+        plt.figure(figsize=(10, 8))
+        sns.heatmap(cm_train, annot=True, fmt='d', cmap='Blues',
+                xticklabels=class_names, yticklabels=class_names)
+        plt.title('Training Set - Confusion Matrix')
+        plt.xlabel('Predicted')
+        plt.ylabel('True')
+        plt.tight_layout()
+        plt.savefig(os.path.join(model_path, 'training_confusion_matrix.png'), dpi=150)
+        plt.close()
+        
+        print("\nTraining Classification Report:")
+        print(classification_report(y_train_true, y_train_pred, target_names=class_names))
+        
+        print("\n2. TEST SET EVALUATION")
+        print("-"*40)
         
         test_loss, test_acc = best_model.evaluate(X_test, y_test_categorical, verbose=0)
         print(f"Test accuracy: {test_acc:.4f}")
         
-        # Detailed predictions
-        y_pred_probs = best_model.predict(X_test, verbose=0)
-        y_pred = np.argmax(y_pred_probs, axis=1)
+        y_test_pred_probs = best_model.predict(X_test, verbose=0)
+        y_test_pred = np.argmax(y_test_pred_probs, axis=1)
         
-        # Confusion matrix
-        cm = confusion_matrix(y_test_encoded, y_pred)
+        cm_test = confusion_matrix(y_test_encoded, y_test_pred)
         
         plt.figure(figsize=(10, 8))
-        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
-                   xticklabels=class_names, yticklabels=class_names)
-        plt.title('Enhanced Model - Confusion Matrix')
+        sns.heatmap(cm_test, annot=True, fmt='d', cmap='Blues',
+                xticklabels=class_names, yticklabels=class_names)
+        plt.title('Test Set - Confusion Matrix')
         plt.xlabel('Predicted')
         plt.ylabel('True')
         plt.tight_layout()
-        plt.savefig(os.path.join(model_path, 'confusion_matrix.png'), dpi=150)
+        plt.savefig(os.path.join(model_path, 'test_confusion_matrix.png'), dpi=150)
         plt.close()
         
-        # Classification report
-        print("\nClassification Report:")
-        print(classification_report(y_test_encoded, y_pred, target_names=class_names))
+        # Classification report for test set
+        print("\nTest Classification Report:")
+        print(classification_report(y_test_encoded, y_test_pred, target_names=class_names))
+        
+        print("\n3. COMPARATIVE ANALYSIS")
+        print("-"*40)
+        print(f"Training accuracy: {train_acc:.4f}")
+        print(f"Test accuracy: {test_acc:.4f}")
+        print(f"Accuracy gap (train-test): {train_acc - test_acc:.4f}")
         
         # Focus on difficult instruments
         print("\n" + "="*60)
@@ -1108,22 +1158,29 @@ def train_enhanced_model(X_train, y_train, X_test, y_test, class_names):
         for instrument in EnhancedAudioConfig.DIFFICULT_INSTRUMENTS:
             if instrument in label_to_int:
                 inst_idx = label_to_int[instrument]
-                inst_mask = y_test_encoded == inst_idx
                 
-                if np.any(inst_mask):
-                    # Get predictions for this instrument
-                    inst_pred = y_pred[inst_mask]
-                    inst_true = y_test_encoded[inst_mask]
+                # Analysis on training set
+                train_inst_mask = y_train_true == inst_idx
+                if np.any(train_inst_mask):
+                    train_inst_acc = np.mean(y_train_pred[train_inst_mask] == inst_idx)
+                else:
+                    train_inst_acc = 0
                     
-                    # Calculate metrics
-                    inst_accuracy = np.mean(inst_pred == inst_true)
-                    
-                    # Confusion analysis
-                    print(f"\n{instrument.upper()} Analysis:")
-                    print(f"  Accuracy: {inst_accuracy:.4f}")
-                    print(f"  Total samples: {np.sum(inst_mask)}")
-                    
-                    # What it's confused with
+                # Analysis on test set
+                test_inst_mask = y_test_encoded == inst_idx
+                if np.any(test_inst_mask):
+                    test_inst_acc = np.mean(y_test_pred[test_inst_mask] == inst_idx)
+                else:
+                    test_inst_acc = 0
+                
+                print(f"\n{instrument.upper()} Analysis:")
+                print(f"  Training Accuracy: {train_inst_acc:.4f}")
+                print(f"  Test Accuracy: {test_inst_acc:.4f}")
+                print(f"  Gap: {train_inst_acc - test_inst_acc:.4f}")
+                
+                # Test set confusion analysis
+                if np.any(test_inst_mask):
+                    inst_pred = y_test_pred[test_inst_mask]
                     confused_with = {}
                     for i, pred_idx in enumerate(inst_pred):
                         if pred_idx != inst_idx:
@@ -1131,26 +1188,31 @@ def train_enhanced_model(X_train, y_train, X_test, y_test, class_names):
                             confused_with[pred_name] = confused_with.get(pred_name, 0) + 1
                     
                     if confused_with:
-                        print(f"  Confused with:")
+                        print(f"  Confused with (test set):")
                         for conf_inst, count in sorted(confused_with.items(), key=lambda x: x[1], reverse=True):
                             print(f"    - {conf_inst}: {count} times ({count/len(inst_pred)*100:.1f}%)")
         
         # Save results
         test_results = {
+            'train_accuracy': float(train_acc),
+            'train_loss': float(train_loss),
             'test_accuracy': float(test_acc),
             'test_loss': float(test_loss),
-            'confusion_matrix': cm.astype(int).tolist(),
+            'accuracy_gap': float(train_acc - test_acc),
+            'training_confusion_matrix': cm_train.astype(int).tolist(),
+            'test_confusion_matrix': cm_test.astype(int).tolist(),
             'class_names': class_names,
             'per_class_metrics': {},
             'training_summary': training_summary
         }
         
-        with open(os.path.join(model_path, 'test_results.json'), 'w') as f:
+        with open(os.path.join(model_path, 'model_evaluation_results.json'), 'w') as f:
             json.dump(make_json_serializable(test_results), f, indent=4)
         
         # Save model
         try:
             best_model.save(os.path.join(model_path, 'enhanced_model.h5'))
+            save_model_summary(best_model, os.path.join(model_path, 'best_model_architecture.txt'))
             print("\n✅ Enhanced model saved")
         except Exception as e:
             print(f"Model save error: {e}")
@@ -1165,7 +1227,7 @@ def train_enhanced_model(X_train, y_train, X_test, y_test, class_names):
             print(f"ONNX conversion error: {e}")
         
         return best_model, test_results
-    
+
     return None, None
 
 def save_enhanced_config():
@@ -1174,7 +1236,7 @@ def save_enhanced_config():
     """
     config_dict = {}
     for key in dir(EnhancedAudioConfig):
-        if not key.startswith('__'):
+        if not key.startswith(''):
             value = getattr(EnhancedAudioConfig, key)
             if not callable(value):
                 if isinstance(value, (list, tuple)):
@@ -1192,9 +1254,8 @@ def main():
     Main function to run the enhanced training pipeline
     """
     print("="*80)
-    print("ENHANCED LAO INSTRUMENT CLASSIFIER")
+    print("LAO INSTRUMENT CLASSIFIER")
     print("="*80)
-    print("🎯 Mission: Improve khean/pin/saw classification with advanced features")
     print("🔧 Key enhancements:")
     print("   • Harmonic-Percussive Source Separation (HPSS)")
     print("   • Multi-channel features (Mel + Harmonic + Percussive + MFCC)")
@@ -1207,9 +1268,9 @@ def main():
     
     # Check GPU availability
     if len(physical_devices) > 0:
-        print(f"✅ Using GPU: {physical_devices[0].name}")
+        print(f" Using GPU: {physical_devices[0].name}")
     else:
-        print("⚠️ No GPU found, using CPU (training will be slower)")
+        print("⚠ No GPU found, using CPU (training will be slower)")
     
     # Save configuration
     save_enhanced_config()
@@ -1221,11 +1282,11 @@ def main():
     try:
         X_train, X_test, y_train, y_test, class_names = process_enhanced_dataset()
     except Exception as e:
-        print(f"❌ Error processing dataset: {e}")
+        print(f" Error processing dataset: {e}")
         return
     
     if len(X_train) == 0:
-        print("❌ No training data found!")
+        print(" No training data found!")
         return
     
     processing_time = datetime.now() - start_time
@@ -1238,13 +1299,13 @@ def main():
         print(f"  {cls}: {count} samples")
     
     # Train model
-    print("\n2. TRAINING ENHANCED MODEL...")
+    print("\n2. TRAINING MODEL...")
     train_start = datetime.now()
     
     try:
         best_model, results = train_enhanced_model(X_train, y_train, X_test, y_test, class_names)
     except Exception as e:
-        print(f"❌ Error training model: {e}")
+        print(f" Error training model: {e}")
         return
     
     training_time = datetime.now() - train_start
@@ -1254,7 +1315,7 @@ def main():
     print(f"✓ Total time: {total_time}")
     
     if results:
-        print(f"\n📊 ENHANCED MODEL RESULTS:")
+        print(f"\n📊 MODEL RESULTS:")
         print(f"   Test Accuracy: {results['test_accuracy']:.4f}")
         print(f"   Model saved to: {model_path}")
         
@@ -1262,14 +1323,8 @@ def main():
         for instrument in EnhancedAudioConfig.DIFFICULT_INSTRUMENTS:
             print(f"   • Check {instrument} performance in classification report above")
         
-        print("\n💡 Next steps:")
-        print("   • Test with problematic khean/pin/saw recordings")
-        print("   • Use enhanced_inference.py for deployment")
-        print("   • The multi-channel features should better separate similar instruments")
-        print("   • HPSS helps distinguish harmonic (khean/saw) from percussive sounds")
-        print("   • SpecAugment improves robustness to background music")
     else:
-        print("\n❌ Training failed - check error messages above")
+        print("\nTraining failed")
 
-if __name__ == "__main__":
+if __name__ == "_main_":
     main()
